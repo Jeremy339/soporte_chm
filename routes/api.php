@@ -12,7 +12,7 @@ use App\Http\Controllers\Api\TicketController;
 */
 
 // --- Rutas Públicas de Autenticación ---
-Route::post('/signup', [AuthController::class, 'register']);
+Route::post('/signup', [AuthController::class, 'signup']);
 Route::post('/login', [AuthController::class, 'login']);
 
 // --- Rutas Protegidas ---
