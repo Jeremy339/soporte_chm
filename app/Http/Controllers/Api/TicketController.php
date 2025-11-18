@@ -3,9 +3,6 @@
 namespace App\Http\Controllers\Api;
 
 // --- Imports de Eventos ---
-use App\Events\TicketStatusUpdated;
-use App\Events\NewTicketCreated;
-
 use App\Http\Controllers\Controller;
 use App\Models\Ticket;
 use Illuminate\Http\Request;
@@ -61,9 +58,6 @@ class TicketController extends Controller
             'user_id' => Auth::id(), // ID del usuario autenticado
             ...$validator->validated() // Añade todos los campos validados
         ]);
-
-        // ¡Disparar evento para el dashboard de técnicos!
-        broadcast(new NewTicketCreated($ticket->load('usuario')));
 
         return response()->json($ticket, 201);
     }
@@ -121,8 +115,6 @@ class TicketController extends Controller
         // 4. Actualizar el ticket
         $ticket->update($validatedData);
 
-        // ¡Disparar evento para notificar al cliente!
-        broadcast(new TicketStatusUpdated($ticket->load(['usuario', 'tecnico'])));
 
         return response()->json($ticket->load(['usuario', 'tecnico']));
     }
@@ -170,9 +162,6 @@ class TicketController extends Controller
         $ticket->estado_usuario = 'en_revision';
         $ticket->estado_interno = 'en_proceso';
         $ticket->save();
-
-        // ¡Disparar evento para notificar al CLIENTE!
-        broadcast(new TicketStatusUpdated($ticket->load(['usuario', 'tecnico'])));
 
         return response()->json($ticket->load(['usuario', 'tecnico']));
     }
