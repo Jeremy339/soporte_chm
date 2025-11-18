@@ -12,6 +12,10 @@ use App\Http\Controllers\Api\TicketController;
 */
 
 // --- Rutas Públicas de Autenticación ---
+
+Route::get('/debug-log', function () {
+    return file_get_contents(storage_path('logs/laravel.log'));
+});
 Route::post('/signup', [AuthController::class, 'signup']);
 Route::post('/login', [AuthController::class, 'login']);
 
