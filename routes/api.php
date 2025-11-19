@@ -16,7 +16,7 @@ use App\Http\Controllers\Api\TicketController;
 Route::get('/debug-log', function () {
     return file_get_contents(storage_path('logs/laravel.log'));
 });
-Route::post('/signup', [AuthController::class, 'signup']);
+Route::post('/signup', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
 
 // --- Rutas Protegidas ---
