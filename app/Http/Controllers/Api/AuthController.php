@@ -8,7 +8,7 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\Rules;
 use App\Models\User;
-use Spatie\Permission\Models\Role;
+use Illuminate\Support\Facades\Validator; // <-- IMPORTANTE: Importar Validator
 
 class AuthController extends Controller
 {
@@ -19,97 +19,92 @@ class AuthController extends Controller
      */
     public function register(Request $request)
     {
-        // --- 1. Validación ---
-        $request->validate([
-            'name'   => ['required', 'string', 'max:255'],
+        // --- 1. Validación Manual ---
+        $validator = Validator::make($request->all(), [
+            'name'      => ['required', 'string', 'max:255'],
             'apellido1' => ['required', 'string', 'max:255'],
-            'cedula'    => ['required', 'string', 'max:20', 'unique:users'],
-            'email'     => ['required', 'string', 'email', 'max:255', 'unique:users'],
+            'cedula'    => ['required', 'string', 'max:20', 'unique:users,cedula'],
+            'email'     => ['required', 'string', 'email', 'max:255', 'unique:users,email'],
             'password'  => ['required', 'confirmed', Rules\Password::defaults()],
             'telefono'  => ['nullable', 'string', 'max:20'],
             'direccion' => ['nullable', 'string', 'max:255'],
+        ], [
+            // --- Mensajes Personalizados en Español ---
+            'cedula.unique' => 'La cédula ingresada ya está registrada en el sistema.',
+            'email.unique'  => 'El correo electrónico ya está en uso por otro usuario.',
+            'password.confirmed' => 'La confirmación de la contraseña no coincide.',
+            'required'      => 'El campo :attribute es obligatorio.',
         ]);
+
+        // Si la validación falla, devolvemos JSON con error 422 inmediatamente
+        if ($validator->fails()) {
+            return response()->json([
+                'message' => 'Error en la validación de datos',
+                'errors'  => $validator->errors(),
+            ], 422); // 422 Unprocessable Entity
+        }
 
         // --- 2. Creación del Usuario ---
-        $user = User::create([
-            'name'   => $request->name,
-            'nombre2'   => $request->nombre2, // Opcional
-            'apellido1' => $request->apellido1,
-            'apellido2' => $request->apellido2, // Opcional
-            'cedula'    => $request->cedula,
-            'email'     => $request->email,
-            'telefono'  => $request->telefono,
-            'direccion' => $request->direccion,
-            'password'  => Hash::make($request->password),
-        ]);
+        // Usamos try-catch para capturar cualquier otro error de base de datos inesperado
+        try {
+            $user = User::create([
+                'name'      => $request->name,
+                'nombre2'   => $request->nombre2,
+                'apellido1' => $request->apellido1,
+                'apellido2' => $request->apellido2,
+                'cedula'    => $request->cedula,
+                'email'     => $request->email,
+                'telefono'  => $request->telefono,
+                'direccion' => $request->direccion,
+                'password'  => Hash::make($request->password),
+            ]);
 
-        // --- 3. Asignación de Rol por Defecto ---
-        // El usuario por defecto saldrá como usuario.
+            // --- 3. Asignación de Rol ---
+            $user->assignRole('usuario');
 
-        $user->assignRole('usuario');
+            // --- 4. Respuesta ---
+            $token = $user->createToken('auth_token')->plainTextToken;
 
-        // --- 4. Respuesta (Token y Usuario) ---
-        
-        $token = $user->createToken('auth_token')->plainTextToken;
+            return response()->json([
+                'message' => '¡Usuario registrado exitosamente!',
+                'user'    => $user,
+                'token'   => $token,
+            ], 201);
 
-        return response()->json([
-            'message' => '¡Usuario registrado exitosamente!',
-            'user'    => $user,
-            'token'   => $token,
-        ], 201); // 201 = Created
+        } catch (\Exception $e) {
+            return response()->json([
+                'message' => 'Error interno al crear el usuario',
+                'error' => $e->getMessage()
+            ], 500);
+        }
     }
 
-    /**
-     * --------------------------------------------------
-     * 2. LOGIN DE USUARIO
-     * --------------------------------------------------
-     */
     public function login(Request $request)
     {
-        // --- 1. Validación ---
-        $request->validate([
+        // Puedes aplicar la misma lógica de Validator aquí si quieres mensajes personalizados
+        $credentials = $request->validate([
             'email' => 'required|email',
             'password' => 'required',
         ]);
 
-        // --- 2. Intento de Autenticación ---
-        // Intentamos autenticar con las credenciales (email y password)
-        if (!Auth::attempt($request->only('email', 'password'))) {
-            // Si falla, devolvemos error
-            return response()->json([
-                'message' => 'Credenciales inválidas'
-            ], 401); // 401 = Unauthorized
+        if (!Auth::attempt($credentials)) {
+            return response()->json(['message' => 'Credenciales inválidas'], 401);
         }
 
-        // --- 3. Éxito: Generar Token ---
-        // Si las credenciales son correctas, buscamos al usuario
         $user = User::where('email', $request['email'])->firstOrFail();
-
-        // Creamos un nuevo token para el usuario
         $token = $user->createToken('auth_token')->plainTextToken;
 
-        // --- 4. Respuesta (Token y Rol) ---
         return response()->json([
             'message' => '¡Hola ' . $user->name . '!',
             'token'   => $token,
             'user'    => $user,
             'role'    => $user->getRoleNames()->first()
-        ], 200); // 200 = OK
+        ], 200);
     }
 
-    /**
-     * --------------------------------------------------
-     * 3. LOGOUT DE USUARIO
-     * --------------------------------------------------
-     */
     public function logout(Request $request)
     {
-        // El middleware 'auth:sanctum' ya validó al usuario
-        // Revocamos el token actual (el que usó para esta solicitud)
         $request->user()->currentAccessToken()->delete();
-
-        return response()->json([
-            'message' => 'Sesión cerrada exitosamente'
-        ], 200); // 200 = OK
+        return response()->json(['message' => 'Sesión cerrada exitosamente'], 200);
     }
 }
