@@ -1,8 +1,10 @@
 <?php
 
+use App\Http\Controllers\Api\AdminController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\AuthController; // <-- 1. Importa el controlador
+use App\Http\Controllers\Api\ReportController;
 use App\Http\Controllers\Api\TicketController;
 
 /*
@@ -51,4 +53,15 @@ Route::middleware('auth:sanctum')->group(function () {
     // Esto crea automáticamente las rutas para:
     // index, store, show, update, destroy
     Route::apiResource('tickets', \App\Http\Controllers\Api\TicketController::class);
+
+
+    // --- RUTAS DE ADMINISTRADOR ---
+    
+    // Gestión de Usuarios
+    Route::get('/admin/users', [AdminController::class, 'index']); // Listar usuarios
+    Route::put('/admin/users/{user}/role', [AdminController::class, 'changeRole']); // Cambiar rol
+    
+    // Reportes
+    Route::get('/admin/reports/stats', [ReportController::class, 'stats']); // JSON para gráficas
+    Route::get('/admin/reports/pdf', [ReportController::class, 'downloadPdf']); // Descargar PDF
 });
