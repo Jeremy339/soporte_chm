@@ -25,6 +25,7 @@
     <div class="header">
         <h2>Reporte de Tickets</h2>
         <p>Periodo: {{ $start_date }} al {{ $end_date }}</p>
+        <p>Filtro de Estado: <strong>{{ $status_filter ?? 'Todos' }}</strong></p>
         <p>Generado el: {{ $generated_at }}</p>
     </div>
 

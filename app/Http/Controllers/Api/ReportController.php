@@ -5,14 +5,14 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Ticket;
 use Illuminate\Http\Request;
-use Barryvdh\DomPDF\Facade\Pdf; // Importar la fachada de PDF
+use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Support\Carbon;
 
 class ReportController extends Controller
 {
     /**
      * Devuelve estadísticas JSON para mostrar gráficos en el Frontend (Expo).
-     * Filtros: ?start_date=2024-01-01&end_date=2024-12-31
+     * Filtros: ?start_date=2024-01-01&end_date=2024-12-31&status=pendiente
      */
     public function stats(Request $request)
     {
@@ -22,9 +22,12 @@ class ReportController extends Controller
 
         $startDate = $request->input('start_date');
         $endDate = $request->input('end_date');
+        $status = $request->input('status'); // <--- Nuevo filtro
 
-        // Query base con filtros de fecha si existen
+        // Query base
         $query = Ticket::query();
+
+        // 1. Filtro de Fecha
         if ($startDate && $endDate) {
             $query->whereBetween('created_at', [
                 Carbon::parse($startDate)->startOfDay(),
@@ -32,7 +35,12 @@ class ReportController extends Controller
             ]);
         }
 
-        // Contar por estado
+        // 2. Filtro de Estado (Si se envía y no está vacío)
+        if ($status && $status !== '') {
+            $query->where('estado_usuario', $status);
+        }
+
+        // Contar por estado (Nota: si filtras por estado, los otros contadores darán 0, lo cual es correcto)
         $stats = [
             'total' => $query->count(),
             'pendientes' => (clone $query)->where('estado_usuario', 'pendiente')->count(),
@@ -42,14 +50,15 @@ class ReportController extends Controller
             'rango' => [
                 'inicio' => $startDate,
                 'fin' => $endDate
-            ]
+            ],
+            'filtro_estado' => $status ?? 'todos'
         ];
 
         return response()->json($stats);
     }
 
     /**
-     * Genera y descarga un PDF con el reporte.
+     * Genera y descarga un PDF con el reporte filtrado.
      */
     public function downloadPdf(Request $request)
     {
@@ -59,14 +68,21 @@ class ReportController extends Controller
 
         $startDate = $request->input('start_date');
         $endDate = $request->input('end_date');
+        $status = $request->input('status'); // <--- Nuevo filtro
 
         $query = Ticket::with(['usuario', 'tecnico']);
 
+        // 1. Filtro de Fecha
         if ($startDate && $endDate) {
             $query->whereBetween('created_at', [
                 Carbon::parse($startDate)->startOfDay(),
                 Carbon::parse($endDate)->endOfDay()
             ]);
+        }
+
+        // 2. Filtro de Estado
+        if ($status && $status !== '') {
+            $query->where('estado_usuario', $status);
         }
         
         $tickets = $query->latest()->get();
@@ -76,17 +92,12 @@ class ReportController extends Controller
             'tickets' => $tickets,
             'start_date' => $startDate ?? 'Inicio',
             'end_date' => $endDate ?? 'Actualidad',
+            'status_filter' => $status ? ucfirst(str_replace('_', ' ', $status)) : 'Todos', // Para mostrar en el título del PDF
             'generated_at' => Carbon::now()->format('d/m/Y H:i')
         ];
 
-        // Cargar vista y renderizar PDF
-        // NOTA: Debes crear la vista resources/views/reports/tickets_pdf.blade.php
         $pdf = Pdf::loadView('reports.tickets_pdf', $data);
 
-        // Opción A: Descargar directamente (stream)
         return $pdf->stream('reporte_tickets.pdf');
-        
-        // Opción B: Si Expo tiene problemas con stream, puedes devolver base64
-        // return response()->json(['pdf_base64' => base64_encode($pdf->output())]);
     }
 }
