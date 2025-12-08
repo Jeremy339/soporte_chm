@@ -48,18 +48,50 @@ class AdminController extends Controller
             'role' => 'required|exists:roles,name',
         ]);
 
-        // 3. Evitar que el admin se quite su propio rol de admin (seguridad básica)
-        if ($user->id === $request->user()->id && $request->role !== 'admin') {
-             return response()->json(['message' => 'No puedes quitarte tu propio rol de administrador'], 400);
+        // --- INICIO DE PROTECCIÓN SUPER ADMIN ---
+        
+        // A. Nadie puede cambiarle el rol al Usuario ID 1 (El Dueño)
+        // (Ni siquiera otro admin)
+        if ($user->id === 1) {
+            return response()->json(['message' => 'ACCIÓN DENEGADA: No se puede modificar al Administrador Principal.'], 403);
         }
 
-        // 4. Sincronizar rol (quita los anteriores y pone el nuevo)
-        // Si quieres que tenga múltiples roles, usa assignRole en vez de syncRoles
+        // B. Evitar que un admin se quite su propio rol de admin por error
+        if ($user->id === $request->user()->id && $request->role !== 'admin') {
+             return response()->json(['message' => 'No puedes quitarte tu propio rol de administrador. Pídele a otro admin que lo haga.'], 400);
+        }
+        
+        // --- FIN DE PROTECCIÓN ---
+
+        // 3. Sincronizar rol (quita los anteriores y pone el nuevo)
         $user->syncRoles([$request->role]);
 
         return response()->json([
             'message' => "Rol actualizado a {$request->role} correctamente",
             'user' => $user->load('roles')
         ]);
+    }
+
+    public function destroy(Request $request, User $user)
+    {
+        // 1. Verificar permiso
+        if (!$request->user()->hasRole('admin')) {
+            return response()->json(['message' => 'No autorizado'], 403);
+        }
+
+        // 2. PROTECCIÓN SUPER ADMIN (ID 1)
+        if ($user->id === 1) {
+            return response()->json(['message' => 'No se puede eliminar al usuario principal del sistema.'], 403);
+        }
+
+        // 3. PROTECCIÓN SUICIDIO (No borrarse a sí mismo)
+        if ($user->id === $request->user()->id) {
+            return response()->json(['message' => 'No puedes eliminar tu propia cuenta mientras estás logueado.'], 400);
+        }
+
+        // 4. Eliminar
+        $user->delete();
+
+        return response()->json(['message' => 'Usuario eliminado correctamente']);
     }
 }

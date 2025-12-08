@@ -64,4 +64,7 @@ Route::middleware('auth:sanctum')->group(function () {
     // Reportes
     Route::get('/admin/reports/stats', [ReportController::class, 'stats']); // JSON para gráficas
     Route::get('/admin/reports/pdf', [ReportController::class, 'downloadPdf']); // Descargar PDF
+
+    // Eliminar cuentas
+    Route::delete('/admin/users/{user}', [AdminController::class, 'destroy']);
 });
