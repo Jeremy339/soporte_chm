@@ -197,7 +197,7 @@ class TicketController extends Controller
         $ticket->estado_interno = 'en_proceso';
         $ticket->save();
 
-        return response()->json($ticket->load(['usuario', 'tecnico']));
+        return response()->json($ticket->load(['recepcionista', 'tecnico']));
     }
 
     /**
@@ -214,7 +214,7 @@ class TicketController extends Controller
 
         // 2. Usamos la relación que definimos en el modelo User.php
         $tickets = $user->ticketsAsignados()
-                        ->with(['usuario', 'tecnico']) // Cargar relaciones
+                        ->with(['recepcionista', 'tecnico']) // Cargar relaciones
                         ->latest() // Ordenar por más nuevo
                         ->get();
 
