@@ -60,7 +60,7 @@ class AuthController extends Controller
             ]);
 
             // --- 3. Asignación de Rol ---
-            $user->assignRole('usuario');
+            $user->assignRole('recepcionista');
 
             // --- 4. Respuesta ---
             $token = $user->createToken('auth_token')->plainTextToken;

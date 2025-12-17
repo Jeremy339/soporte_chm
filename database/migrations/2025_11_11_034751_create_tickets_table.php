@@ -18,6 +18,12 @@ return new class extends Migration {
                 ->constrained('users') // 'constrained' asume que la tabla es 'users' y la columna 'id'
                 ->onDelete('cascade'); // Si se borra el usuario, se borran sus tickets
 
+            
+            // -- Cliente ---
+            $table->foreignId('client_id')
+                 ->constrained('clients')
+                 ->onDelete('cascade');
+
             // El TÉCNICO asignado
             $table->foreignId('tecnico_id')
                 ->nullable()

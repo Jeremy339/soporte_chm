@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 // --- Imports de Eventos ---
 use App\Http\Controllers\Controller;
+use App\Models\Client;
 use App\Models\Ticket;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -22,9 +23,9 @@ class TicketController extends Controller
         $user = $request->user();
         
         // Cargar relaciones para evitar N+1 queries
-        $query = Ticket::with(['usuario', 'tecnico']);
+        $query = Ticket::with(['cliente', 'tecnico', 'recepcionista']);
 
-        if ($user->hasRole(['admin', 'tecnico'])) {
+        if ($user->hasRole(['admin', 'tecnico', 'recepcionista'])) {
             $tickets = $query->latest()->get();
         } else {
             $tickets = $query->where('user_id', $user->id)
@@ -43,6 +44,10 @@ class TicketController extends Controller
     public function store(Request $request)
     {
         $validator = Validator::make($request->all(), [
+            'cliente_cedula'        => 'required|string|max:20',
+            'cliente_nombre'        => 'required|string|max:150',
+            'cliente_direccion'     => 'nullable|string|max:255',
+            'cliente_celular'       => 'nullable|string|max:20',
             'tipo_dispositivo'      => 'required|string|max:100',
             'marca'                 => 'required|string|max:100',
             'modelo'                => 'required|string|max:100',
@@ -54,12 +59,41 @@ class TicketController extends Controller
             return response()->json(['errors' => $validator->errors()], 422);
         }
 
+       // --- LOGICA DE CLIENTE UNICO ---
+        // Buscamos si el cliente ya existe por su Cédula
+        // firstOrCreate intenta buscar por el primer array, si no encuentra, crea usando la unión de ambos arrays
+        $cliente = Client::firstOrCreate(
+            ['cedula' => $request->cliente_cedula], 
+            [
+                'nombre'    => $request->cliente_nombre,
+                'direccion' => $request->cliente_direccion,
+                'celular'   => $request->cliente_celular
+            ]
+        );
+
+        // Opcional: Si el cliente ya existía, podríamos querer actualizar sus datos (dirección/teléfono)
+        if (!$cliente->wasRecentlyCreated) {
+            $cliente->update([
+                'nombre'    => $request->cliente_nombre,
+                'direccion' => $request->cliente_direccion,
+                'celular'   => $request->cliente_celular
+            ]);
+        }
+
+        // Crear el Ticket
         $ticket = Ticket::create([
-            'user_id' => Auth::id(), // ID del usuario autenticado
-            ...$validator->validated() // Añade todos los campos validados
+            'user_id'   => Auth::id(), // El ID del Recepcionista logueado
+            'client_id' => $cliente->id, // El ID del cliente encontrado o creado
+            'tipo_dispositivo'      => $request->tipo_dispositivo,
+            'marca'                 => $request->marca,
+            'modelo'                => $request->modelo,
+            'numero_serie'          => $request->numero_serie,
+            'descripcion_problema'  => $request->descripcion_problema,
+            'estado_usuario'        => 'pendiente',
+            'estado_interno'        => 'sin_iniciar'
         ]);
 
-        return response()->json($ticket, 201);
+        return response()->json($ticket->load(['cliente', 'recepcionista']), 201);
     }
 
     /**
@@ -73,9 +107,9 @@ class TicketController extends Controller
         $user = $request->user();
 
         // Si el usuario es el dueño del ticket, o es admin/tecnico
-        if ($ticket->user_id === $user->id || $user->hasRole(['admin', 'tecnico'])) {
+        if ($ticket->user_id === $user->id || $user->hasRole(['admin', 'tecnico', 'recepcionista'])) {
             // Cargar relaciones y devolver
-            return response()->json($ticket->load(['usuario', 'tecnico']));
+            return response()->json($ticket->load(['cliente', 'tecnico', 'recepcionista']));
         }
 
         // Si no, no está autorizado
@@ -93,7 +127,7 @@ class TicketController extends Controller
         $user = $request->user();
 
         // 1. Solo Admins o Técnicos pueden actualizar
-        if (!$user->hasRole(['admin', 'tecnico'])) {
+        if (!$user->hasRole(['admin', 'tecnico', 'recepcionista'])) {
             return response()->json(['message' => 'No autorizado'], 403);
         }
 
@@ -116,7 +150,7 @@ class TicketController extends Controller
         $ticket->update($validatedData);
 
 
-        return response()->json($ticket->load(['usuario', 'tecnico']));
+        return response()->json($ticket->load(['cliente', 'tecnico']));
     }
 
     /**
