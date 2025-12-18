@@ -21,7 +21,7 @@ class TicketController extends Controller
     public function index(Request $request)
     {
         $user = $request->user();
-        
+
         // Cargar relaciones para evitar N+1 queries
         $query = Ticket::with(['cliente', 'tecnico', 'recepcionista']);
 
@@ -29,8 +29,8 @@ class TicketController extends Controller
             $tickets = $query->latest()->get();
         } else {
             $tickets = $query->where('user_id', $user->id)
-                             ->latest()
-                             ->get();
+                ->latest()
+                ->get();
         }
 
         return response()->json($tickets, 200);
@@ -44,53 +44,53 @@ class TicketController extends Controller
     public function store(Request $request)
     {
         $validator = Validator::make($request->all(), [
-            'cliente_cedula'        => 'required|string|max:20',
-            'cliente_nombre'        => 'required|string|max:150',
-            'cliente_direccion'     => 'nullable|string|max:255',
-            'cliente_celular'       => 'nullable|string|max:20',
-            'tipo_dispositivo'      => 'required|string|max:100',
-            'marca'                 => 'required|string|max:100',
-            'modelo'                => 'required|string|max:100',
-            'numero_serie'          => 'nullable|string|max:100',
-            'descripcion_problema'  => 'required|string|max:2000',
+            'cliente_cedula' => 'required|string|max:20',
+            'cliente_nombre' => 'required|string|max:150',
+            'cliente_direccion' => 'nullable|string|max:255',
+            'cliente_celular' => 'nullable|string|max:20',
+            'tipo_dispositivo' => 'required|string|max:100',
+            'marca' => 'required|string|max:100',
+            'modelo' => 'required|string|max:100',
+            'numero_serie' => 'nullable|string|max:100',
+            'descripcion_problema' => 'required|string|max:2000',
         ]);
 
         if ($validator->fails()) {
             return response()->json(['errors' => $validator->errors()], 422);
         }
 
-       // --- LOGICA DE CLIENTE UNICO ---
+        // --- LOGICA DE CLIENTE UNICO ---
         // Buscamos si el cliente ya existe por su Cédula
         // firstOrCreate intenta buscar por el primer array, si no encuentra, crea usando la unión de ambos arrays
         $cliente = Client::firstOrCreate(
-            ['cedula' => $request->cliente_cedula], 
+            ['cedula' => $request->cliente_cedula],
             [
-                'nombre'    => $request->cliente_nombre,
+                'nombre' => $request->cliente_nombre,
                 'direccion' => $request->cliente_direccion,
-                'celular'   => $request->cliente_celular
+                'celular' => $request->cliente_celular
             ]
         );
 
         // Opcional: Si el cliente ya existía, podríamos querer actualizar sus datos (dirección/teléfono)
         if (!$cliente->wasRecentlyCreated) {
             $cliente->update([
-                'nombre'    => $request->cliente_nombre,
+                'nombre' => $request->cliente_nombre,
                 'direccion' => $request->cliente_direccion,
-                'celular'   => $request->cliente_celular
+                'celular' => $request->cliente_celular
             ]);
         }
 
         // Crear el Ticket
         $ticket = Ticket::create([
-            'user_id'   => Auth::id(), // El ID del Recepcionista logueado
+            'user_id' => Auth::id(), // El ID del Recepcionista logueado
             'client_id' => $cliente->id, // El ID del cliente encontrado o creado
-            'tipo_dispositivo'      => $request->tipo_dispositivo,
-            'marca'                 => $request->marca,
-            'modelo'                => $request->modelo,
-            'numero_serie'          => $request->numero_serie,
-            'descripcion_problema'  => $request->descripcion_problema,
-            'estado_usuario'        => 'pendiente',
-            'estado_interno'        => 'sin_iniciar'
+            'tipo_dispositivo' => $request->tipo_dispositivo,
+            'marca' => $request->marca,
+            'modelo' => $request->modelo,
+            'numero_serie' => $request->numero_serie,
+            'descripcion_problema' => $request->descripcion_problema,
+            'estado_usuario' => 'pendiente',
+            'estado_interno' => 'sin_iniciar'
         ]);
 
         return response()->json($ticket->load(['cliente', 'recepcionista']), 201);
@@ -123,35 +123,56 @@ class TicketController extends Controller
      * - Admin (Solo): Puede re-asignar un técnico (cambiar 'tecnico_id').
      */
     public function update(Request $request, Ticket $ticket)
-    {
-        $user = $request->user();
+{
+    $user = $request->user();
 
-        // 1. Solo Admins o Técnicos pueden actualizar
-        if (!$user->hasRole(['admin', 'tecnico', 'recepcionista'])) {
-            return response()->json(['message' => 'No autorizado'], 403);
-        }
-
-        // 2. Validación
-        $validatedData = $request->validate([
-            'estado_usuario' => 'sometimes|in:pendiente,en_revision,reparado,cerrado',
-            'estado_interno' => 'sometimes|in:sin_iniciar,en_proceso,completado',
-            'prioridad'      => 'sometimes|in:baja,media,alta',
-            'tecnico_id'     => 'sometimes|integer|exists:users,id' // Validar que el ID exista
-        ]);
-
-        // 3. Lógica de Permisos (Re-asignación)
-        if ($request->has('tecnico_id')) {
-            if (!$user->hasRole('admin')) {
-                unset($validatedData['tecnico_id']);
-            }
-        }
-        
-        // 4. Actualizar el ticket
-        $ticket->update($validatedData);
-
-
-        return response()->json($ticket->load(['cliente', 'tecnico']));
+    // 1. Solo Admins o Técnicos pueden actualizar
+    if (!$user->hasRole(['admin', 'tecnico', 'recepcionista'])) {
+        return response()->json(['message' => 'No autorizado'], 403);
     }
+
+    // --- CORRECCIÓN AQUÍ ---
+    
+    // 2. Definir reglas base en una variable $rules
+    $rules = [
+        'estado_usuario' => 'sometimes|in:pendiente,en_revision,reparado,cerrado',
+        'estado_interno' => 'sometimes|in:sin_iniciar,en_proceso,completado',
+        'prioridad'      => 'sometimes|in:baja,media,alta',
+        'tecnico_id'     => 'sometimes|integer|exists:users,id'
+    ];
+
+    // 3. Agregar reglas condicionales al mismo array $rules
+    if ($request->input('estado_usuario') === 'cerrado') {
+        $rules['observaciones_tecnico'] = 'required|string|max:2000';
+        $rules['costo_total']           = 'required|numeric|min:0';
+        $rules['abono']                 = 'required|numeric|min:0|lte:costo_total';
+    }
+
+    // 4. Ejecutar la validación UNA SOLA VEZ
+    // Esto asegura que $validatedData tenga TANTO los estados COMO los costos
+    $validatedData = $request->validate($rules);
+
+
+    // 5. Lógica de Permisos (Re-asignación)
+    if ($request->has('tecnico_id')) {
+        if (!$user->hasRole('admin')) {
+            unset($validatedData['tecnico_id']);
+        }
+    }
+
+    // 6. Cálculo de la Resta
+    if ($request->input('estado_usuario') === 'cerrado') {
+        $costo = $request->input('costo_total');
+        $abono = $request->input('abono');
+        // Agregamos el saldo_pendiente manualmente al array validado
+        $validatedData['saldo_pendiente'] = $costo - $abono;
+    }
+
+    // 7. Actualizar el ticket
+    $ticket->update($validatedData);
+
+    return response()->json($ticket->load(['cliente', 'tecnico']));
+}
 
     /**
      * Elimina un ticket específico.
@@ -188,9 +209,9 @@ class TicketController extends Controller
 
         // 2. No se puede tomar un ticket ya asignado
         if ($ticket->tecnico_id) {
-             return response()->json(['message' => 'Este ticket ya está asignado'], 409); // 409 = Conflict
+            return response()->json(['message' => 'Este ticket ya está asignado'], 409); // 409 = Conflict
         }
-        
+
         // 3. Asignar y cambiar estados
         $ticket->tecnico_id = $user->id;
         $ticket->estado_usuario = 'en_revision';
@@ -214,9 +235,9 @@ class TicketController extends Controller
 
         // 2. Usamos la relación que definimos en el modelo User.php
         $tickets = $user->ticketsAsignados()
-                        ->with(['recepcionista', 'tecnico']) // Cargar relaciones
-                        ->latest() // Ordenar por más nuevo
-                        ->get();
+            ->with(['recepcionista', 'tecnico', 'cliente']) // Cargar relaciones
+            ->latest() // Ordenar por más nuevo
+            ->get();
 
         return response()->json($tickets, 200);
     }
