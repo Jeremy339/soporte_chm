@@ -22,7 +22,7 @@ class RolesAndUsersSeeder extends Seeder
         // Usamos firstOrCreate para evitar duplicados
         Role::firstOrCreate(['name' => 'admin']);
         Role::firstOrCreate(['name' => 'tecnico']);
-        Role::firstOrCreate(['name' => 'usuario']);
+        Role::firstOrCreate(['name' => 'recepcionista']);
 
         // --- 3. Crear el Usuario Administrador ---
         // Usamos firstOrCreate para encontrar por 'email' o crear uno nuevo
@@ -54,17 +54,17 @@ class RolesAndUsersSeeder extends Seeder
             $user->assignRole('tecnico');
         }
 
-        for ($i = 1; $i <= 5; $i++) {
+        for ($i = 1; $i <= 2; $i++) {
             $user = User::firstOrCreate(
-                ['email' => "usuario{$i}@proyecto.com"],
+                ['email' => "recepcion{$i}@proyecto.com"],
                 [
-                    'name' => "Usuario {$i}",
+                    'name' => "Recepcionista {$i}",
                     'apellido1' => "Apellido{$i}",
                     'cedula' => str_pad($i + 100, 10, '0', STR_PAD_LEFT),
-                    'password' => Hash::make('usuario12'),
+                    'password' => Hash::make('recepcion12'),
                 ]
             );
-            $user->assignRole('usuario');
+            $user->assignRole('recepcionista');
         }
     }
 }

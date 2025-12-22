@@ -18,6 +18,12 @@ return new class extends Migration {
                 ->constrained('users') // 'constrained' asume que la tabla es 'users' y la columna 'id'
                 ->onDelete('cascade'); // Si se borra el usuario, se borran sus tickets
 
+            
+            // -- Cliente ---
+            $table->foreignId('client_id')
+                 ->constrained('clients')
+                 ->onDelete('cascade');
+
             // El TÉCNICO asignado
             $table->foreignId('tecnico_id')
                 ->nullable()
@@ -34,6 +40,12 @@ return new class extends Migration {
             $table->enum('estado_usuario', ['pendiente', 'en_revision', 'reparado', 'cerrado'])->default('pendiente');
             $table->enum('estado_interno', ['sin_iniciar', 'en_proceso', 'completado'])->default('sin_iniciar');
             $table->enum('prioridad', ['baja', 'media', 'alta'])->default('baja');
+
+            // Cierre de Ticket
+            $table->text('observaciones_tecnico')->nullable();
+            $table->decimal('costo_total', 10, 2)->nullable();
+            $table->decimal('abono', 10, 2)->nullable()->default(0);
+            $table->decimal('saldo_pendiente', 10, 2)->nullable(); // Esta es la "Resta"
 
             $table->timestamps(); // (created_at y updated_at)
         });

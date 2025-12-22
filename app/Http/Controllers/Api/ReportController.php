@@ -70,7 +70,7 @@ class ReportController extends Controller
         $endDate = $request->input('end_date');
         $status = $request->input('status'); // <--- Nuevo filtro
 
-        $query = Ticket::with(['usuario', 'tecnico']);
+        $query = Ticket::with(['cliente', 'tecnico']);
 
         // 1. Filtro de Fecha
         if ($startDate && $endDate) {

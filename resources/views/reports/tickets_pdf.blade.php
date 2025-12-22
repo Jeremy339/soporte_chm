@@ -34,7 +34,7 @@
             <tr>
                 <th>ID</th>
                 <th>Dispositivo</th>
-                <th>Usuario</th>
+                <th>Cliente</th>
                 <th>Estado</th>
                 <th>Técnico</th>
                 <th>Fecha</th>
@@ -49,8 +49,7 @@
                     {{ $ticket->marca }} {{ $ticket->modelo }}
                 </td>
                 <td>
-                    {{ $ticket->usuario->name ?? 'N/A' }}<br>
-                    <small>{{ $ticket->usuario->email ?? '' }}</small>
+                    {{ $ticket->cliente->nombre ?? 'N/A' }}<br>
                 </td>
                 <td>
                     @php

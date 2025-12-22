@@ -6,6 +6,7 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\AuthController; // <-- 1. Importa el controlador
 use App\Http\Controllers\Api\ReportController;
 use App\Http\Controllers\Api\TicketController;
+use App\Http\Controllers\ClientController;
 
 /*
 |--------------------------------------------------------------------------
@@ -53,6 +54,9 @@ Route::middleware('auth:sanctum')->group(function () {
     // Esto crea automáticamente las rutas para:
     // index, store, show, update, destroy
     Route::apiResource('tickets', \App\Http\Controllers\Api\TicketController::class);
+
+    /// Api para buscar Cliente por Cédula:
+    Route::get('/clients/search/{cedula}', [ClientController::class, 'searchByCedula']);
 
 
     // --- RUTAS DE ADMINISTRADOR ---

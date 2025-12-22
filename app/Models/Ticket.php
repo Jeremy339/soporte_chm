@@ -11,6 +11,7 @@ class Ticket extends Model
 
     protected $fillable = [
         'user_id',
+        'client_id',
         'tipo_dispositivo',
         'marca',
         'modelo',
@@ -20,12 +21,22 @@ class Ticket extends Model
         'estado_usuario',
         'estado_interno',
         'prioridad',
+        'observaciones_tecnico',
+        'costo_total',
+        'abono',
+        'saldo_pendiente',
     ];
 
     /// Relaciones
-    public function usuario()
+    public function recepcionista()
     {
         return $this->belongsTo(User::class, 'user_id');
+    }
+
+    // Relación con el Cliente
+    public function cliente()
+    {
+        return $this->belongsTo(Client::class, 'client_id');
     }
 
     public function tecnico()
