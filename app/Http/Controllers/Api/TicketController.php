@@ -53,6 +53,7 @@ class TicketController extends Controller
             'modelo' => 'required|string|max:100',
             'numero_serie' => 'nullable|string|max:100',
             'descripcion_problema' => 'required|string|max:2000',
+            'prioridad' => 'required|in:baja,media,alta',
         ]);
 
         if ($validator->fails()) {
@@ -89,6 +90,7 @@ class TicketController extends Controller
             'modelo' => $request->modelo,
             'numero_serie' => $request->numero_serie,
             'descripcion_problema' => $request->descripcion_problema,
+            'prioridad' => $request->prioridad,
             'estado_usuario' => 'pendiente',
             'estado_interno' => 'sin_iniciar'
         ]);
