@@ -41,6 +41,9 @@ return new class extends Migration {
             $table->enum('estado_interno', ['sin_iniciar', 'en_proceso', 'completado'])->default('sin_iniciar');
             $table->enum('prioridad', ['baja', 'media', 'alta'])->default('baja');
 
+            // Revisión del Técnico
+            $table->text('observacion_revision')->nullable()->after('descripcion_problema');
+
             // Cierre de Ticket
             $table->text('observaciones_tecnico')->nullable();
             $table->decimal('costo_total', 10, 2)->nullable();

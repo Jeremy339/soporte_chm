@@ -22,6 +22,7 @@ class Ticket extends Model
         'estado_interno',
         'prioridad',
         'observaciones_tecnico',
+        'observacion_revision',
         'costo_total',
         'abono',
         'saldo_pendiente',
