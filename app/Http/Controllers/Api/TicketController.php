@@ -72,7 +72,7 @@ class TicketController extends Controller
             ]
         );
 
-        // Opcional: Si el cliente ya existía, podríamos querer actualizar sus datos (dirección/teléfono)
+        // Opcional: Si el cliente ya existe, usamos sus datos más recientes
         if (!$cliente->wasRecentlyCreated) {
             $cliente->update([
                 'nombre' => $request->cliente_nombre,
@@ -83,8 +83,8 @@ class TicketController extends Controller
 
         // Crear el Ticket
         $ticket = Ticket::create([
-            'user_id' => Auth::id(), // El ID del Recepcionista logueado
-            'client_id' => $cliente->id, // El ID del cliente encontrado o creado
+            'user_id' => Auth::id(),
+            'client_id' => $cliente->id, 
             'tipo_dispositivo' => $request->tipo_dispositivo,
             'marca' => $request->marca,
             'modelo' => $request->modelo,
@@ -110,11 +110,8 @@ class TicketController extends Controller
 
         // Si el usuario es el dueño del ticket, o es admin/tecnico
         if ($ticket->user_id === $user->id || $user->hasRole(['admin', 'tecnico', 'recepcionista'])) {
-            // Cargar relaciones y devolver
             return response()->json($ticket->load(['cliente', 'tecnico', 'recepcionista']));
         }
-
-        // Si no, no está autorizado
         return response()->json(['message' => 'No autorizado'], 403);
     }
 
@@ -149,6 +146,10 @@ class TicketController extends Controller
         $rules['costo_total']           = 'required|numeric|min:0';
         $rules['abono']                 = 'required|numeric|min:0|lte:costo_total';
     }
+    // Si el tecnico está revisando el ticket
+    if ($request->input('estado_usuario') === 'en_revision') {
+        $rules['observacion_revision'] = 'required|string|max:2000';
+    }
 
     // 4. Ejecutar la validación UNA SOLA VEZ
     // Esto asegura que $validatedData tenga TANTO los estados COMO los costos
@@ -166,8 +167,12 @@ class TicketController extends Controller
     if ($request->input('estado_usuario') === 'cerrado') {
         $costo = $request->input('costo_total');
         $abono = $request->input('abono');
-        // Agregamos el saldo_pendiente manualmente al array validado
         $validatedData['saldo_pendiente'] = $costo - $abono;
+        $validatedData['estado_interno'] = 'completado'; 
+    }
+    // Si pasa a revisión, el estado interno es "en proceso"
+    if ($request->input('estado_usuario') === 'en_revision') {
+        $validatedData['estado_interno'] = 'en_proceso';
     }
 
     // 7. Actualizar el ticket
