@@ -84,7 +84,7 @@ class TicketController extends Controller
         // Crear el Ticket
         $ticket = Ticket::create([
             'user_id' => Auth::id(),
-            'client_id' => $cliente->id, 
+            'client_id' => $cliente->id,
             'tipo_dispositivo' => $request->tipo_dispositivo,
             'marca' => $request->marca,
             'modelo' => $request->modelo,
@@ -122,64 +122,64 @@ class TicketController extends Controller
      * - Admin (Solo): Puede re-asignar un técnico (cambiar 'tecnico_id').
      */
     public function update(Request $request, Ticket $ticket)
-{
-    $user = $request->user();
+    {
+        $user = $request->user();
 
-    // 1. Solo Admins o Técnicos pueden actualizar
-    if (!$user->hasRole(['admin', 'tecnico', 'recepcionista'])) {
-        return response()->json(['message' => 'No autorizado'], 403);
-    }
-
-    // --- CORRECCIÓN AQUÍ ---
-    
-    // 2. Definir reglas base en una variable $rules
-    $rules = [
-        'estado_usuario' => 'sometimes|in:pendiente,en_revision,reparado,cerrado',
-        'estado_interno' => 'sometimes|in:sin_iniciar,en_proceso,completado',
-        'prioridad'      => 'sometimes|in:baja,media,alta',
-        'tecnico_id'     => 'sometimes|integer|exists:users,id'
-    ];
-
-    // 3. Agregar reglas condicionales al mismo array $rules
-    if ($request->input('estado_usuario') === 'cerrado') {
-        $rules['observaciones_tecnico'] = 'required|string|max:2000';
-        $rules['costo_total']           = 'required|numeric|min:0';
-        $rules['abono']                 = 'required|numeric|min:0|lte:costo_total';
-    }
-    // Si el tecnico está revisando el ticket
-    if ($request->input('estado_usuario') === 'en_revision') {
-        $rules['observacion_revision'] = 'required|string|max:2000';
-    }
-
-    // 4. Ejecutar la validación UNA SOLA VEZ
-    // Esto asegura que $validatedData tenga TANTO los estados COMO los costos
-    $validatedData = $request->validate($rules);
-
-
-    // 5. Lógica de Permisos (Re-asignación)
-    if ($request->has('tecnico_id')) {
-        if (!$user->hasRole('admin')) {
-            unset($validatedData['tecnico_id']);
+        // 1. Solo Admins o Técnicos pueden actualizar
+        if (!$user->hasRole(['admin', 'tecnico', 'recepcionista'])) {
+            return response()->json(['message' => 'No autorizado'], 403);
         }
-    }
 
-    // 6. Cálculo de la Resta
-    if ($request->input('estado_usuario') === 'cerrado') {
-        $costo = $request->input('costo_total');
-        $abono = $request->input('abono');
-        $validatedData['saldo_pendiente'] = $costo - $abono;
-        $validatedData['estado_interno'] = 'completado'; 
-    }
-    // Si pasa a revisión, el estado interno es "en proceso"
-    if ($request->input('estado_usuario') === 'en_revision') {
-        $validatedData['estado_interno'] = 'en_proceso';
-    }
+        // --- CORRECCIÓN AQUÍ ---
 
-    // 7. Actualizar el ticket
-    $ticket->update($validatedData);
+        // 2. Definir reglas base en una variable $rules
+        $rules = [
+            'estado_usuario' => 'sometimes|in:pendiente,en_revision,reparado,cerrado',
+            'estado_interno' => 'sometimes|in:sin_iniciar,en_proceso,completado',
+            'prioridad' => 'sometimes|in:baja,media,alta',
+            'tecnico_id' => 'sometimes|integer|exists:users,id'
+        ];
 
-    return response()->json($ticket->load(['cliente', 'tecnico']));
-}
+        // 3. Agregar reglas condicionales al mismo array $rules
+        if ($request->input('estado_usuario') === 'cerrado') {
+            $rules['observaciones_tecnico'] = 'required|string|max:2000';
+            $rules['costo_total'] = 'required|numeric|min:0';
+            $rules['abono'] = 'required|numeric|min:0|lte:costo_total';
+        }
+        // Si el tecnico está revisando el ticket
+        if ($request->input('estado_usuario') === 'en_revision') {
+            $rules['observacion_revision'] = 'required|string|max:2000';
+        }
+
+        // 4. Ejecutar la validación UNA SOLA VEZ
+        // Esto asegura que $validatedData tenga TANTO los estados COMO los costos
+        $validatedData = $request->validate($rules);
+
+
+        // 5. Lógica de Permisos (Re-asignación)
+        if ($request->has('tecnico_id')) {
+            if (!$user->hasRole('admin')) {
+                unset($validatedData['tecnico_id']);
+            }
+        }
+
+        // 6. Cálculo de la Resta
+        if ($request->input('estado_usuario') === 'cerrado') {
+            $costo = $request->input('costo_total');
+            $abono = $request->input('abono');
+            $validatedData['saldo_pendiente'] = $costo - $abono;
+            $validatedData['estado_interno'] = 'completado';
+        }
+        // Si pasa a revisión, el estado interno es "en proceso"
+        if ($request->input('estado_usuario') === 'en_revision') {
+            $validatedData['estado_interno'] = 'en_proceso';
+        }
+
+        // 7. Actualizar el ticket
+        $ticket->update($validatedData);
+
+        return response()->json($ticket->load(['cliente', 'tecnico']));
+    }
 
     /**
      * Elimina un ticket específico.
